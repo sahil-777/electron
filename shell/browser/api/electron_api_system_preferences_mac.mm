@@ -193,28 +193,28 @@ void SystemPreferences::UnsubscribeWorkspaceNotification(int request_id) {
       request_id, NotificationCenterKind::kNSWorkspaceNotificationCenter);
 }
 
+static NSNotificationCenter* GetNotificationCenter(
+    NotificationCenterKind kind) {
+  switch (kind) {
+    case NotificationCenterKind::kNSDistributedNotificationCenter:
+      return [NSDistributedNotificationCenter defaultCenter];
+    case NotificationCenterKind::kNSNotificationCenter:
+      return [NSNotificationCenter defaultCenter];
+    case NotificationCenterKind::kNSWorkspaceNotificationCenter:
+      return [[NSWorkspace sharedWorkspace] notificationCenter];
+    default:
+      return nil;
+  }
+}
+
 int SystemPreferences::DoSubscribeNotification(
     const std::string& name,
     const NotificationCallback& callback,
     NotificationCenterKind kind) {
   int request_id = g_next_id++;
   __block NotificationCallback copied_callback = callback;
-  NSNotificationCenter* center;
-  switch (kind) {
-    case NotificationCenterKind::kNSDistributedNotificationCenter:
-      center = [NSDistributedNotificationCenter defaultCenter];
-      break;
-    case NotificationCenterKind::kNSNotificationCenter:
-      center = [NSNotificationCenter defaultCenter];
-      break;
-    case NotificationCenterKind::kNSWorkspaceNotificationCenter:
-      center = [[NSWorkspace sharedWorkspace] notificationCenter];
-      break;
-    default:
-      break;
-  }
 
-  g_id_map[request_id] = [center
+  g_id_map[request_id] = [GetNotificationCenter(kind)
       addObserverForName:base::SysUTF8ToNSString(name)
                   object:nil
                    queue:nil
@@ -243,21 +243,7 @@ void SystemPreferences::DoUnsubscribeNotification(int request_id,
   auto iter = g_id_map.find(request_id);
   if (iter != g_id_map.end()) {
     id observer = iter->second;
-    NSNotificationCenter* center;
-    switch (kind) {
-      case NotificationCenterKind::kNSDistributedNotificationCenter:
-        center = [NSDistributedNotificationCenter defaultCenter];
-        break;
-      case NotificationCenterKind::kNSNotificationCenter:
-        center = [NSNotificationCenter defaultCenter];
-        break;
-      case NotificationCenterKind::kNSWorkspaceNotificationCenter:
-        center = [[NSWorkspace sharedWorkspace] notificationCenter];
-        break;
-      default:
-        break;
-    }
-    [center removeObserver:observer];
+    [GetNotificationCenter(kind) removeObserver:observer];
     g_id_map.erase(iter);
   }
 }
